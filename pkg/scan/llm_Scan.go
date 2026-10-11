@@ -25,6 +25,8 @@ func getLLMProvider(cfg *cfgReader.EarlybirdConfig) LLMProvider {
 	switch {
 	case isGeminiModel(cfg.LLMModel):
 		return GeminiProvider{}
+	case isAnthropicModel(cfg.LLMModel):
+		return AnthropicProvider{}
 	default:
 		return GptProvider{}
 	}

@@ -196,6 +196,45 @@ type llmGeminiCandidate struct {
 	Content json.RawMessage `json:"content"`
 }
 
+type anthropicMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type anthropicOutputFormat struct {
+	Type   string          `json:"type"`
+	Schema json.RawMessage `json:"schema"`
+}
+
+type anthropicOutputConfig struct {
+	Format anthropicOutputFormat `json:"format"`
+}
+
+type AnthropicRequestBody struct {
+	Model        string                `json:"model"`
+	MaxTokens    int                   `json:"max_tokens"`
+	System       string                `json:"system"`
+	Messages     []anthropicMessage    `json:"messages"`
+	OutputConfig anthropicOutputConfig `json:"output_config"`
+}
+
+type anthropicContentBlock struct {
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
+}
+
+type anthropicStopDetails struct {
+	Category    string `json:"category"`
+	Explanation string `json:"explanation"`
+}
+
+type AnthropicResponseBody struct {
+	Content     []anthropicContentBlock `json:"content"`
+	StopReason  string                  `json:"stop_reason"`
+	StopDetails *anthropicStopDetails   `json:"stop_details,omitempty"`
+	Error       *llmAPIError            `json:"error,omitempty"`
+}
+
 type llmAIResponse struct {
 	Choices    []llmChatCompletionChoice `json:"choices,omitempty"`
 	Candidates []llmGeminiCandidate      `json:"candidates,omitempty"`

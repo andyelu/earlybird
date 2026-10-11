@@ -219,6 +219,88 @@ func TestLLMScanBuildsGeminiRequestAndParsesResponse(t *testing.T) {
 	}
 }
 
+func TestLLMScanBuildsAnthropicRequestAndParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("x-api-key"); got != "test-key" {
+			t.Fatalf("x-api-key header = %q, want test-key", got)
+		}
+		if got := r.Header.Get("anthropic-version"); got != anthropicVersion {
+			t.Fatalf("anthropic-version header = %q, want %s", got, anthropicVersion)
+		}
+
+		var req map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("Decode() error = %v", err)
+		}
+		if req["model"] != "claude-opus-5-5" {
+			t.Fatalf("request model = %v, want claude-opus-5-5", req["model"])
+		}
+		if req["system"] != "custom prompt" {
+			t.Fatalf("system = %v, want custom prompt", req["system"])
+		}
+		if _, ok := req["temperature"]; ok {
+			t.Fatal("did not expect anthropic request to include temperature")
+		}
+		if _, ok := req["output_config"]; !ok {
+			t.Fatal("expected anthropic request to include output_config")
+		}
+		messages, ok := req["messages"].([]any)
+		if !ok || len(messages) != 1 {
+			t.Fatalf("messages = %#v, want 1 entry", req["messages"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"stop_reason": "end_turn",
+			"content": []map[string]any{
+				{"type": "thinking", "thinking": ""},
+				{"type": "text", "text": `{"findings":[{"line":2,"credential_type":"api_key","confidence":"high","candidate":"secret-value","reason":"looks like a hard-coded credential"}]}`},
+			},
+		})
+	}))
+	defer server.Close()
+
+	cfg := &cfgReader.EarlybirdConfig{
+		EnableLLMScan:     true,
+		LLMEndpoint:       server.URL,
+		LLMAPIKey:         "test-key",
+		LLMModel:          "claude-opus-5-5",
+		LLMSystemPrompt:   "custom prompt",
+		LLMTimeoutSeconds: 5,
+		LLMMaxLines:       10,
+		LLMMaxBytes:       2048,
+	}
+
+	findings, err := llm_scan(cfg, LLMJob{
+		FileName:  "sample.env",
+		FilePath:  "/tmp/sample.env",
+		FileLines: []string{"username = app", "api_key = secret-value"},
+	})
+	if err != nil {
+		t.Fatalf("llm_scan() error = %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("llm_scan() findings = %d, want 1", len(findings))
+	}
+	if findings[0].Line != 2 {
+		t.Fatalf("finding line = %d, want 2", findings[0].Line)
+	}
+	if findings[0].CredentialType != "api_key" {
+		t.Fatalf("finding credential type = %q, want api_key", findings[0].CredentialType)
+	}
+}
+
+func TestAnthropicParseResponseReturnsErrorOnRefusal(t *testing.T) {
+	responseBody := []byte(`{"stop_reason":"refusal","stop_details":{"type":"refusal","category":"cyber"},"content":[]}`)
+	_, err := AnthropicProvider{}.parseResponse(responseBody)
+	if err == nil {
+		t.Fatal("parseResponse() error = nil, want refusal error")
+	}
+	if !strings.Contains(err.Error(), "cyber") {
+		t.Fatalf("parseResponse() error = %v, want refusal category", err)
+	}
+}
+
 func TestValidateLLMConfigRequiresAPIKey(t *testing.T) {
 	cfg := &cfgReader.EarlybirdConfig{
 		EnableLLMScan:     true,

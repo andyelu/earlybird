@@ -135,6 +135,29 @@ The default values above match the CLI defaults used by EarlyBird when these opt
 - Request body uses `contents` array format
 - Responses are wrapped in `candidates` array
 
+### Anthropic (Claude)
+
+**Provider Detection**: Model name contains `"claude"` (case-insensitive)
+
+**Supported Models**:
+- `claude-opus-5-5`
+- `claude-sonnet-5-5`
+- `claude-haiku-5-5`
+
+**Configuration**:
+```json
+{
+  "LLMEndpoint": "https://api.anthropic.com/v1/messages",
+  "LLMModel": "claude-opus-5-5",
+  "LLMAPIKey": "${EARLYBIRD_LLM_API_KEY}"
+}
+```
+
+**API Features**:
+- Uses headers `x-api-key` and `anthropic-version` for authentication instead of Authorization
+- Request body uses a top-level `system` field and a JSON schema (`output_config.format`) for the findings
+- Responses are wrapped in `content` array; findings are read from its `text` blocks
+
 ## Adding a New LLM Provider
 
 ### Step 1: Create Provider Implementation File
